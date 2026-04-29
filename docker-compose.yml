@@ -1,1 +1,67 @@
-fdf 
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+      - ./ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+    environment:
+      - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    # הגדרת משאבים מומלצת למניעת קריסה של המערכת המארחת
+    deploy:
+      resources:
+        limits:
+          memory: 8G # שנה בהתאם לכמות ה-RAM שיש לך (מינימום 8GB מומלץ)
+    networks:
+      - evolution_network
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - LITELLM_MASTER_KEY=sk-1234
+      - GEMINI_API_KEY=AIzaSyCU63PhEvan8dN5WuJ4N_nHeCDJddb5wbI
+      - XAI_API_KEY=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
+      - MINIMAX_API_KEY=sk-api-CRYACMx_98sQdED8U69uEQy1Il7MwqPtyXWasuF9WCubMbCqSCGbrXI6E6n0uechmvgXeas5FYKX0Ib7LdDajYomtpOOqxu5_RW52FA45xLGvDzhkw4H92w
+      - GROQ_API_KEY=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
+      - MISTRAL_API_KEY=BFPIoravbqNut3CpRQoQ2W9gmBLESHy5
+      - SSL_VERIFY=false
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    depends_on:
+      - ollama
+    networks:
+      - evolution_network
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_ENABLE_ADMIN=true
+      - ENABLE_OPENAI_API=true
+      - OPENAI_API_BASE_URL=http://litellm:4000/v1
+      - OPENAI_API_KEY=sk-1234
+    volumes:
+      - ./open_webui_data:/app/backend/data
+    depends_on:
+      - ollama
+    networks:
+      - evolution_network
+      
+networks:
+  evolution_network:
+    name: evolution_network  # Fixed name to prevent folder-prefixing
+    driver: bridge
+
+
